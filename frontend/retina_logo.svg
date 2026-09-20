@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <mask id="retina-pupil-cutout">
+      <rect x="0" y="0" width="100" height="100" fill="white" />
+      <circle cx="67.57" cy="36.76" r="11.5" fill="black" />
+    </mask>
+  </defs>
+
+  <!-- Clean Circular Base -->
+  <circle cx="50" cy="50" r="49" fill="#ffffff" />
+
+  <!-- Segmented Outer Ring -->
+  <!-- Bottom Arc (Royal Navy Blue) -->
+  <path d="M 89.95 52.09 A 40 40 0 0 1 10.05 52.09" fill="none" stroke="#253592" stroke-width="8.5" stroke-linecap="butt" />
+
+  <!-- Top-Left Arc (Cerulean Blue) -->
+  <path d="M 10.05 47.91 A 40 40 0 0 1 47.91 10.05" fill="none" stroke="#009ee3" stroke-width="8.5" stroke-linecap="butt" />
+
+  <!-- Top-Middle Arc (Sky Blue) -->
+  <path d="M 52.09 10.05 A 40 40 0 0 1 81.09 24.83" fill="none" stroke="#00a7e7" stroke-width="8.5" stroke-linecap="butt" />
+
+  <!-- Top-Right Small Arc (Light Cyan Blue) -->
+  <path d="M 83.55 28.21 A 40 40 0 0 1 89.95 47.91" fill="none" stroke="#7cd4f7" stroke-width="8.5" stroke-linecap="butt" />
+
+  <!-- Central Pupil with Circular Reflection Notch -->
+  <circle cx="50" cy="50" r="24.5" fill="#18181b" mask="url(#retina-pupil-cutout)" />
+</svg>

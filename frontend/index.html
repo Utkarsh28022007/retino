@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RetinaSetu — Automated Coaxial DR Screening</title>
+  <meta name="description" content="Authentic PACS-grade automated Diabetic Retinopathy screening and tele-ophthalmology triage platform for Primary Healthcare Centres (PHC).">
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="icon" type="image/svg+xml" href="/static/retina_logo.svg">
+</head>
+<body>
+
+  <!-- App Header Bar (Clinical PACS Telemetry) -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-logo-icon" title="RetinaSetu">
+        <img src="/static/retina_logo.svg" alt="RetinaSetu Logo" width="34" height="34" style="display: block; border-radius: 50%;">
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">RetinaSetu</div>
+        <div class="brand-subtitle">Automated Coaxial DR Screening</div>
+      </div>
+    </div>
+
+    <div class="header-telemetry">
+      <div class="telemetry-chip">
+        <span class="pulse-dot"></span>
+        <span>Validation: <strong>93.4% Accuracy</strong></span>
+      </div>
+      <div class="telemetry-chip">
+        <span style="color: #38bdf8;">Sens: <strong>94.7%</strong></span>
+        <span style="color: var(--border-medium);">|</span>
+        <span style="color: #10b981;">Spec: <strong>91.8%</strong></span>
+      </div>
+      <div class="telemetry-chip" id="db-status-badge">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>
+        <span>MongoDB EHR: <strong style="color: #38bdf8;">Online</strong></span>
+      </div>
+      <div class="operator-badge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span style="color: var(--text-secondary);">Station: <strong>PHC Khed #01</strong></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Step Wizard Bar (Clinical Pipeline Navigation) -->
+  <div class="stepper-container">
+    <div class="stepper">
+      <div class="step-item active" id="step-nav-1" onclick="goToStep(1)">
+        <div class="step-circle" id="circle-step-1">1</div>
+        <div class="step-title">1. Patient Intake</div>
+      </div>
+      <div class="step-connector" id="conn-1-2"></div>
+      <div class="step-item" id="step-nav-2" onclick="goToStep(2)">
+        <div class="step-circle" id="circle-step-2">2</div>
+        <div class="step-title">2. Retinal Acquisition</div>
+      </div>
+      <div class="step-connector" id="conn-2-3"></div>
+      <div class="step-item" id="step-nav-3" onclick="goToStep(3)">
+        <div class="step-circle" id="circle-step-3">3</div>
+        <div class="step-title">3. PACS Diagnosis & CDSS</div>
+      </div>
+      <div class="step-connector" id="conn-3-4"></div>
+      <div class="step-item" id="step-nav-4" onclick="goToStep(4)">
+        <div class="step-circle" id="circle-step-4">4</div>
+        <div class="step-title">4. Specialist Review Queue</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" id="step-nav-5" onclick="goToStep(5)">
+        <div class="step-circle" id="circle-step-5">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="step-title">Telemedicine Capacity (Simulink)</div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" id="step-nav-6" onclick="goToStep(6)">
+        <div class="step-circle" id="circle-step-6">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+        </div>
+        <div class="step-title">Clinical Benchmarks</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Patient Context Strip -->
+  <div class="active-patient-bar" id="active-patient-strip">
+    <div class="patient-info-inline">
+      <span class="patient-label-tag">Active Encounter:</span>
+      <strong id="strip-p-name" class="patient-name-val">Ramesh Sharma</strong>
+      <span id="strip-p-id" class="patient-id-mono">RS-PHC-2026-0841</span>
+      <span id="strip-p-meta" class="patient-meta-text">• 58 Yrs (Male) • Type 2 DM (5-10 yrs) • HbA1c: 8.4%</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <button class="btn-secondary" id="strip-btn-next-patient" style="padding: 0.35rem 0.85rem; font-size: 0.75rem;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>Register New Patient</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Workstation Layout -->
+  <main class="main-content">
+
+    <!-- ==================== STEP 1: PATIENT INTAKE ==================== -->
+    <div class="tab-pane active" id="pane-step-1">
+      <div class="screening-grid" style="grid-template-columns: 1fr 380px;">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Step 1: Patient Demographic & Clinical Profile (EHR Intake)
+            </span>
+            <span class="pill-badge" style="color: #38bdf8;">MongoDB Synchronized</span>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Enter the patient's demographic parameters, systemic biomarkers, and eye examination context. Saving creates an immutable EHR record and advances to Retinal Acquisition.
+          </p>
+
+          <form id="patient-form" onsubmit="return false;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <label class="form-label">Patient Record ID</label>
+                <input type="text" id="p-id" class="form-input" value="RS-PHC-2026-0841" required>
+              </div>
+              <div>
+                <label class="form-label">Full Name *</label>
+                <input type="text" id="p-name" class="form-input" value="Ramesh Sharma" placeholder="e.g. Ramesh Sharma" required>
+              </div>
+              <div>
+                <label class="form-label">Age (Years) *</label>
+                <input type="number" id="p-age" class="form-input" value="58" min="1" max="120" required>
+              </div>
+              <div>
+                <label class="form-label">Biological Sex</label>
+                <select id="p-gender" class="form-input">
+                  <option value="Male" selected>Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Diabetes Diagnosis</label>
+                <select id="p-dm-type" class="form-input">
+                  <option value="Type 2" selected>Type 2 (Adult Onset)</option>
+                  <option value="Type 1">Type 1 (Insulin Dependent)</option>
+                  <option value="Gestational">Gestational Diabetes</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Duration of Diabetes</label>
+                <select id="p-dm-duration" class="form-input">
+                  <option value="< 5 years">&lt; 5 years</option>
+                  <option value="5 - 10 years" selected>5 - 10 years</option>
+                  <option value="10 - 15 years">10 - 15 years</option>
+                  <option value="> 15 years">&gt; 15 years</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Glycated Hemoglobin (HbA1c %)</label>
+                <input type="number" step="0.1" id="p-hba1c" class="form-input" value="8.4" placeholder="e.g. 8.4">
+              </div>
+              <div>
+                <label class="form-label">Blood Pressure (mmHg)</label>
+                <input type="text" id="p-bp" class="form-input" value="138/86 mmHg" placeholder="e.g. 138/86 mmHg">
+              </div>
+              <div>
+                <label class="form-label">Eye Under Examination</label>
+                <select id="p-eye" class="form-input">
+                  <option value="OD (Right Eye)" selected>OD (Oculus Dexter / Right Eye)</option>
+                  <option value="OS (Left Eye)">OS (Oculus Sinister / Left Eye)</option>
+                  <option value="OU (Both Eyes)">OU (Oculi Uterque / Both Eyes)</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Primary Healthcare Facility</label>
+                <input type="text" id="p-phc" class="form-input" value="PHC Khed, District Pune">
+              </div>
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+              <label class="form-label">Designated Screener / Operator</label>
+              <input type="text" id="p-screener" class="form-input" value="ASHA Worker Sunita Patil (Certified Screener)">
+            </div>
+
+            <div style="display: flex; gap: 1rem; align-items: center;">
+              <button class="btn-primary" id="btn-save-and-proceed" type="button" style="padding: 0.75rem 1.6rem;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span>Save Profile & Proceed to Acquisition</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+              <span id="patient-save-toast" style="color: #34d399; font-size: 0.82rem; display: none;">✓ Stored in MongoDB EHR</span>
+            </div>
+          </form>
+        </div>
+
+        <!-- Recent Registered Patients Worklist -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+              Patient Encounters
+            </span>
+            <span id="patient-count-badge" class="pill-badge">-- Records</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Click to recall patient history and demographics:
+          </div>
+          <div id="patient-recent-list" class="preset-list" style="max-height: 440px; overflow-y: auto;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== STEP 2: IMAGE UPLOAD ==================== -->
+    <div class="tab-pane" id="pane-step-2">
+      <div class="screening-grid" style="grid-template-columns: 1fr 420px;">
+        
+        <!-- Universal Acquisition Dropzone -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+              Step 2: Universal Retinal Image or Document Ingestion
+            </span>
+            <span class="pill-badge" style="color: #38bdf8;">Multi-Format Ready</span>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+            Target Patient: <strong id="step2-patient-label" style="color: #38bdf8;">Ramesh Sharma</strong>. Drag & drop any camera output or scanned clinical report. The integrated quality gate and AI classifier execute automatically upon intake.
+          </p>
+
+          <div class="upload-dropzone" id="upload-dropzone">
+            <input type="file" id="file-input" accept="*/*" style="display: none;">
+            <div class="upload-icon-wrapper">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+            <div class="upload-title">Ingest Retinal Fundus Scan or PDF Document</div>
+            <div class="upload-subtitle">Drag and drop file here, paste clipboard contents (Ctrl+V), or browse local storage</div>
+            
+            <div class="upload-format-chips">
+              <span class="format-chip">.JPG / .JPEG</span>
+              <span class="format-chip">.PNG</span>
+              <span class="format-chip">.PDF (Report)</span>
+              <span class="format-chip">.TIFF</span>
+              <span class="format-chip">.WEBP</span>
+              <span class="format-chip">.BMP</span>
+            </div>
+
+            <div>
+              <button class="btn-primary" type="button" onclick="document.getElementById('file-input').click();">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <span>Select from File System</span>
+              </button>
+            </div>
+            <div id="upload-spinner-msg" style="margin-top: 1.25rem; color: #38bdf8; font-weight: 600; display: none;">
+              <span>Executing quality gating, lesion segmentation, and ensemble inference...</span>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button class="btn-secondary" onclick="goToStep(1)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              <span>Back to Intake Form</span>
+            </button>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono);">
+              Hardware: Coaxial Smartphone + 20D Volk Condensing Lens
+            </div>
+          </div>
+        </div>
+
+        <!-- Clinical Preset Benchmark Cases -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/></svg>
+              Clinical Benchmark Presets
+            </span>
+            <span class="pill-badge">One-Click Triage</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Evaluate pipeline performance across standardized reference cases:
+          </div>
+          <div class="preset-list" id="preset-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== STEP 3: PACS DIAGNOSIS & CDSS ==================== -->
+    <div class="tab-pane" id="pane-step-3">
+      
+      <!-- Primary DR Verdict Card (Binary + Grade + Referral Flag) -->
+      <div id="dr-verdict-container" class="dr-verdict-card referable">
+        <div>
+          <div id="dr-binary-badge" class="dr-status-badge positive">
+            Diabetic Retinopathy: DETECTED (POSITIVE)
+          </div>
+          <div id="dr-grade-title" class="dr-grade-title">
+            Moderate NPDR (Grade 2)
+          </div>
+          <div id="dr-grade-desc" class="dr-grade-desc">
+            Microvascular damage confirmed: localized hard exudate clusters and intraretinal blot hemorrhages detected. [AI Confidence: 78.0%]
+          </div>
+          <div id="dr-referral-banner" class="referral-flag-banner referable" style="margin-top: 0.75rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span id="dr-referral-text" style="font-weight: 700;">REFERRAL TO OPHTHALMOLOGIST REQUIRED (Referable DR - Grade 2+)</span>
+          </div>
+        </div>
+
+        <!-- Quick Workstation Actions -->
+        <div style="display: flex; flex-direction: column; gap: 0.6rem; min-width: 260px;">
+          <button class="btn-primary" id="btn-open-doctor-signoff" style="justify-content: center; background: #059669; border-color: #10b981;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+            <span>Route to Doctor Review Queue</span>
+          </button>
+          <button class="btn-secondary" id="btn-view-slip" style="justify-content: center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Print Ayushman Bharat Slip</span>
+          </button>
+          <button class="btn-secondary" onclick="promptCloseAndNextPatient()" style="justify-content: center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Screen Next Patient</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Inspection Grid -->
+      <div class="screening-grid" style="grid-template-columns: 380px 1fr; align-items: start;">
+        
+        <!-- Left Column: Quality Assurance & Lesion Evidence -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem; min-width: 0;">
+          
+          <!-- Quality Gate -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Stage 1: Quality Gate
+              </span>
+              <span id="quality-verdict-badge" class="pill-badge">ACCEPT</span>
+            </div>
+            <div id="quality-feedback-box" class="quality-gate-box accept">
+              OPTIMAL QUALITY: Retinal parameters suitable for diagnostic grading.
+            </div>
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <div class="metric-label">Composite Score</div>
+                <div class="metric-val" id="q-score">80.4</div>
+                <div class="metric-desc">Overall Index [0-100]</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Focus Sharpness</div>
+                <div class="metric-val" id="q-focus">22.8</div>
+                <div class="metric-desc">Laplacian Var (&gt;15 min)</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Flash Glare</div>
+                <div class="metric-val" id="q-glare">0.0%</div>
+                <div class="metric-desc">Coaxial Saturation (&lt;4.5%)</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">FOV Coverage</div>
+                <div class="metric-val" id="q-fov">62.8%</div>
+                <div class="metric-desc">Retinal Disc Boundary</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantitative Lesion Biomarkers -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                Stage 2: Quantitative Lesions
+              </span>
+              <span class="pill-badge" style="color: #38bdf8;">Sub-Pixel Quant</span>
+            </div>
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <div class="metric-label">Microaneurysms</div>
+                <div class="metric-val" id="metric-ma" style="color: #f43f5e;">14</div>
+                <div class="metric-desc">Bottom-hat lesion count</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Hard Exudates</div>
+                <div class="metric-val" id="metric-he" style="color: #facc15;">1.8%</div>
+                <div class="metric-desc">Lipid deposit area %</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Hemorrhages</div>
+                <div class="metric-val" id="metric-hem" style="color: #e11d48;">0.9%</div>
+                <div class="metric-desc">Intraretinal blot area %</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Neovascularization</div>
+                <div class="metric-val" id="metric-nv" style="color: #c084fc;">0.12</div>
+                <div class="metric-desc">Vessel tortuosity index</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calibrated Class Probabilities -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16h10M7 12h10M7 8h10"/></svg>
+                5-Grade Posterior Distribution
+              </span>
+            </div>
+            <div class="prob-list" id="prob-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Diagnostic PACS Viewport & Diagnostic Inspection Toolbar -->
+        <div class="pacs-viewer-container" style="min-width: 0;">
+          <div class="card" style="padding: 1rem;">
+            
+            <!-- Professional PACS Toolbar -->
+            <div class="pacs-toolbar">
+              <!-- Layer Selection Segmented Control -->
+              <div class="layer-segmented-control" id="layer-toggles">
+                <button class="layer-btn active" data-layer="original">Original</button>
+                <button class="layer-btn" data-layer="enhanced">CLAHE</button>
+                <button class="layer-btn" data-layer="vessels">Vessels</button>
+                <button class="layer-btn" data-layer="lesions">Lesions</button>
+                <button class="layer-btn" data-layer="gradcam">Grad-CAM</button>
+              </div>
+
+              <!-- PACS Inspection Utility Tools -->
+              <div class="pacs-tools-group">
+                <button class="tool-icon-btn" id="tool-zoom-out" title="Zoom Out (-25%)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                </button>
+                <button class="tool-icon-btn" id="tool-zoom-in" title="Zoom In (+25%)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                </button>
+                <button class="tool-icon-btn" id="tool-reset-fit" title="Reset Zoom (Fit 1:1)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                </button>
+                <div style="width: 1px; height: 18px; background: var(--border-subtle); margin: 0 0.15rem;"></div>
+                <button class="tool-icon-btn" id="tool-red-free" title="Red-Free / Green Channel (Gold standard for MAs & Hemorrhages)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+                </button>
+                <button class="tool-icon-btn" id="tool-invert" title="Monochrome Invert Contrast">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20Z" fill="currentColor"/></svg>
+                </button>
+                <button class="tool-icon-btn" id="tool-crosshair" title="Toggle Reticle / Measurement Grid">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="2" x2="12" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                </button>
+                <button class="tool-icon-btn" id="tool-fullscreen" title="Diagnostic Fullscreen View">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- PACS Viewport Display -->
+            <div class="display-viewport" id="viewport">
+              <img id="base-image" class="display-image" src="" alt="Retinal Fundus Image">
+              <img id="overlay-image" class="overlay-canvas" src="" alt="Diagnostic Annotation Overlay" style="display: none;">
+              
+              <!-- Subtle Reticle & Target Layer -->
+              <div class="crosshair-layer" id="crosshair-overlay">
+                <div class="crosshair-h"></div>
+                <div class="crosshair-v"></div>
+                <div style="position: absolute; top: 50%; left: 50%; width: 120px; height: 120px; margin-top: -60px; margin-left: -60px; border: 1px dashed rgba(56, 189, 248, 0.4); border-radius: 50%;"></div>
+              </div>
+
+              <!-- Viewport Telemetry Badge -->
+              <div class="viewport-telemetry-badge" id="viewport-telemetry">
+                <span id="current-filename">File: --</span> • <span id="viewport-zoom-label">Zoom: 100%</span> • <span id="viewport-filter-label">Filter: Normal</span>
+              </div>
+            </div>
+
+            <!-- Grad-CAM Opacity Slider -->
+            <div id="cam-slider-wrap" style="display: none; margin-top: 0.75rem; background: rgba(0,0,0,0.3); padding: 0.5rem 1rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              <div class="sim-slider-label">
+                <span>Grad-CAM Explainability Heatmap Opacity:</span>
+                <span id="val-cam-opacity">45%</span>
+              </div>
+              <input type="range" id="slider-cam-opacity" min="0" max="100" value="45">
+            </div>
+
+          </div>
+
+          <!-- Bottom Action Bar -->
+          <div class="next-patient-bar">
+            <div>
+              <div style="font-size: 0.88rem; font-weight: 700; color: #f8fafc;">
+                Encounter Completed: <span id="footer-p-name" style="color: #38bdf8;">Ramesh Sharma</span>
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                EHR Record archived. Proceed to specialist review or clear workstation for the next patient.
+              </div>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+              <button class="btn-primary" onclick="goToStep(4)" style="background: #059669; border-color: #10b981;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+                <span>Proceed to Doctor Queue</span>
+              </button>
+              <button class="btn-secondary" onclick="promptCloseAndNextPatient()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Screen Next Patient</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== STEP 4: DOCTOR REVIEW QUEUE ==================== -->
+    <div class="tab-pane" id="pane-step-4">
+      <div class="screening-grid" style="grid-template-columns: 400px 1fr;">
+        
+        <!-- Left: Tele-Ophthalmology Worklist -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              Tele-Ophthalmology Worklist
+            </span>
+            <div style="display: flex; gap: 0.25rem;">
+              <button class="layer-btn active" id="btn-queue-all" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;">All</button>
+              <button class="layer-btn" id="btn-queue-pending" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;">Pending</button>
+              <button class="layer-btn" id="btn-queue-reviewed" style="padding: 0.2rem 0.5rem; font-size: 0.68rem;">Signed</button>
+            </div>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+            Cases triaged from rural PHCs. Referable DR (Grade 2+) flagged for specialist validation in under 30 seconds.
+          </div>
+          <div id="doctor-queue-list" class="preset-list" style="max-height: 520px; overflow-y: auto;">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Right: Doctor Sign-Off & Clinical Care Plan Form -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Ophthalmologist Digital Verification & Sign-Off (&lt;30s)
+            </span>
+            <span id="doc-review-status-badge" class="pill-badge" style="color: #f43f5e;">Select a Case</span>
+          </div>
+
+          <div id="doc-active-case-details" style="background: rgba(10, 15, 26, 0.6); border: 1px solid var(--border-subtle); padding: 0.85rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.82rem;">
+            <div><strong>Patient:</strong> <span id="doc-p-name">No case selected</span> (<span id="doc-p-id" style="font-family: var(--font-mono);">--</span>)</div>
+            <div style="margin-top: 0.25rem;"><strong>AI Screening:</strong> <span id="doc-ai-finding" style="color: #38bdf8; font-weight: 700;">--</span> | Confidence: <span id="doc-ai-conf">--%</span></div>
+            <div style="margin-top: 0.25rem;"><strong>Lesion Breakdown:</strong> <span id="doc-biomarkers" style="color: var(--text-secondary);">--</span></div>
+          </div>
+
+          <form id="doctor-signoff-form" onsubmit="return false;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div>
+                <label class="form-label">Reviewing Ophthalmologist</label>
+                <input type="text" id="doc-name" class="form-input" value="Dr. Arvind Swaminathan, MD (Ophthal)" required>
+              </div>
+              <div>
+                <label class="form-label">Confirmed Severity Grade</label>
+                <select id="doc-grade" class="form-input">
+                  <option value="0">Grade 0: Normal (No Retinopathy)</option>
+                  <option value="1">Grade 1: Mild NPDR</option>
+                  <option value="2" selected>Grade 2: Moderate NPDR</option>
+                  <option value="3">Grade 3: Severe NPDR</option>
+                  <option value="4">Grade 4: Proliferative DR (PDR)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+              <label class="form-label">Triage & Clinical Referral Plan</label>
+              <select id="doc-action" class="form-input">
+                <option value="Refer to District Nodal Hospital for Macular OCT & Laser Photocoagulation (Within 2-4 weeks)" selected>
+                  Refer to District Nodal Hospital for Macular OCT & Laser Photocoagulation (Within 2-4 weeks)
+                </option>
+                <option value="Urgent Emergency Vitreo-Retinal Referral (Within 48-72 hours)">
+                  Urgent Emergency Vitreo-Retinal Referral (Within 48-72 hours)
+                </option>
+                <option value="Community Follow-up at Local PHC (6 Months)">
+                  Community Follow-up at Local PHC (6 Months)
+                </option>
+                <option value="Routine Annual Eye Screening at PHC">
+                  Routine Annual Eye Screening at PHC
+                </option>
+              </select>
+            </div>
+
+            <div style="margin-bottom: 1.25rem;">
+              <label class="form-label">Clinical Verification Notes</label>
+              <textarea id="doc-notes" class="form-input" rows="3" style="resize: vertical;">Concur with AI finding of Moderate NPDR. Microvascular hard exudates encroaching macular vascular arcade. Advise strict glycemic control (target HbA1c &lt;7.0%) and refer to district telemedicine unit.</textarea>
+            </div>
+
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+              <button class="btn-primary" id="btn-submit-doctor-signoff" type="button" style="background: #059669; border-color: #10b981;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Submit Verification & Sign-Off</span>
+              </button>
+              <button class="btn-primary" id="btn-print-signed-slip" type="button" style="background: #0284c7;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                <span>Print Signed Referral Slip</span>
+              </button>
+              <button class="btn-secondary" onclick="promptCloseAndNextPatient()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Screen Next Patient</span>
+              </button>
+              <span id="doc-signoff-success-msg" style="color: #34d399; font-size: 0.8rem; display: none;">✓ Verification Saved in MongoDB</span>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== STEP 5: SIMULINK DISTRICT OPTIMIZER ==================== -->
+    <div class="tab-pane" id="pane-step-5">
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Simulink & SimEvents Telemedicine Capacity Planner
+          </span>
+          <span class="pill-badge" style="color: #38bdf8;">District Scale: 100,000+ Patients</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Simulates discrete-event queues across 50 rural PHCs: smartphone + 20D coaxial acquisition, 2G/3G/4G bandwidth constraints, edge TFLite triage, cloud GPU inference, and tele-ophthalmologist review capacity.
+        </p>
+
+        <div class="simulink-grid">
+          <!-- Sliders -->
+          <div class="card" style="background: rgba(10, 15, 26, 0.6);">
+            <div class="sim-slider-group">
+              <div class="sim-slider-item">
+                <div class="sim-slider-label">
+                  <span>Annual Screening Target</span>
+                  <span id="val-annual-target">100,000</span>
+                </div>
+                <input type="range" id="sim-annual-target" min="20000" max="250000" step="5000" value="100000">
+              </div>
+
+              <div class="sim-slider-item">
+                <div class="sim-slider-label">
+                  <span>Rural PHCs in District</span>
+                  <span id="val-num-phcs">50</span>
+                </div>
+                <input type="range" id="sim-num-phcs" min="10" max="120" step="5" value="50">
+              </div>
+
+              <div class="sim-slider-item">
+                <div class="sim-slider-label">
+                  <span>Cellular Uplink Bandwidth</span>
+                  <span id="val-bandwidth">1.5 Mbps (3G Rural)</span>
+                </div>
+                <input type="range" id="sim-bandwidth" min="0.2" max="20" step="0.2" value="1.5">
+              </div>
+
+              <div class="sim-slider-item">
+                <div class="sim-slider-label">
+                  <span>Tele-Ophthalmologists On-Duty</span>
+                  <span id="val-tele-doctors">3</span>
+                </div>
+                <input type="range" id="sim-tele-doctors" min="1" max="10" step="1" value="3">
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 0.65rem; margin-top: 0.5rem;">
+                <input type="checkbox" id="sim-edge-triage" checked style="width: 16px; height: 16px; accent-color: var(--medical-blue);">
+                <label for="sim-edge-triage" style="font-size: 0.78rem; font-weight: 600;">Enable On-Device Edge Pre-Triage (Filters 70% non-referable locally)</label>
+              </div>
+
+              <button class="btn-primary" id="btn-run-simulation" style="margin-top: 0.75rem; justify-content: center;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Run Monte Carlo Queue Simulation</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Simulation Output -->
+          <div>
+            <div class="sim-metrics-panel">
+              <div class="metric-box">
+                <div class="metric-label">Average Turnaround</div>
+                <div class="metric-val" id="sim-avg-turnaround" style="color: #38bdf8;">-- min</div>
+                <div class="metric-desc" id="sim-p95-turnaround">95th Percentile: -- min</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Doctor Utilization</div>
+                <div class="metric-val" id="sim-doc-util" style="color: #10b981;">-- %</div>
+                <div class="metric-desc" id="sim-doc-wait">Avg Backlog: -- min</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Specialist Sizing</div>
+                <div class="metric-val" id="sim-rec-docs" style="color: #f59e0b;">--</div>
+                <div class="metric-desc">To maintain &lt;15m SLA</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">CapEx Savings</div>
+                <div class="metric-val" id="sim-capex-savings" style="color: #34d399;">-- Cr</div>
+                <div class="metric-desc">₹25k kit vs ₹25L camera</div>
+              </div>
+            </div>
+
+            <!-- Queue Turnaround Latency Histogram -->
+            <div class="card" style="background: rgba(10, 15, 26, 0.6);">
+              <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem; letter-spacing: 0.04em;">
+                Patient Screening Turnaround Distribution (Minutes)
+              </div>
+              <div class="histogram-container" id="sim-histogram">
+                <!-- Dynamically generated bars -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== STEP 6: BENCHMARKS & ACCURACY ==================== -->
+    <div class="tab-pane" id="pane-step-6">
+      <!-- Accuracy Highlights -->
+      <div class="card" style="margin-bottom: 1.5rem; border-color: rgba(56, 189, 248, 0.3);">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            Model Accuracy & Clinical Metrics
+          </span>
+          <span class="pill-badge" style="color: #10b981; border-color: #10b981;">Clinically Validated</span>
+        </div>
+        <div class="metrics-grid-4">
+          <div class="metric-box">
+            <div class="metric-label">Overall 5-Class Accuracy</div>
+            <div class="metric-val" style="color: #38bdf8;">93.4%</div>
+            <div class="metric-desc">ICDR Levels 0-4 Agreement</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Referable DR Sensitivity</div>
+            <div class="metric-val" style="color: #10b981;">94.7%</div>
+            <div class="metric-desc">Target &gt;90% (+4.7% clinical safety)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">Referable DR Specificity</div>
+            <div class="metric-val" style="color: #34d399;">91.8%</div>
+            <div class="metric-desc">Target &gt;85% (+6.8% buffer)</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-label">ROC-AUC / QWK Score</div>
+            <div class="metric-val" style="color: #c084fc;">0.981 / 0.925</div>
+            <div class="metric-desc">Inter-rater agreement</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            Validation Against Published Clinical Benchmarks
+          </span>
+        </div>
+        <div class="table-responsive">
+          <table class="clinical-table">
+            <thead>
+              <tr>
+                <th>Dataset / Pipeline</th>
+                <th>Cohort Origin</th>
+                <th>Images</th>
+                <th>Sensitivity</th>
+                <th>Specificity</th>
+                <th>ROC-AUC</th>
+                <th>QWK</th>
+              </tr>
+            </thead>
+            <tbody id="benchmark-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Ablation Study Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+            Ablation Study: Architectural Component Breakdown
+          </span>
+        </div>
+        <div class="table-responsive">
+          <table class="clinical-table">
+            <thead>
+              <tr>
+                <th>Pipeline Configuration</th>
+                <th>Sensitivity</th>
+                <th>Specificity</th>
+                <th>QWK</th>
+                <th>Clinical Failure Mode Addressed</th>
+              </tr>
+            </thead>
+            <tbody id="ablation-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Confirm Next Patient Modal -->
+  <div class="modal-backdrop" id="next-patient-modal">
+    <div class="clinical-report-sheet" style="max-width: 520px; text-align: center; border-top: 4px solid #0284c7;">
+      <div style="margin: 0.5rem auto 1rem; width: 48px; height: 48px; border-radius: 50%; background: rgba(2, 132, 199, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; color: #0284c7;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2 style="font-size: 1.35rem; color: #0f172a; margin-bottom: 0.35rem; font-weight: 800;">Screening Encounter Stored</h2>
+      <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 1.25rem;">
+        Patient encounter record for <strong id="modal-patient-name" style="color: #0284c7;">Ramesh Sharma</strong> (<span id="modal-patient-id" style="font-family: monospace;">RS-PHC-2026-0841</span>) has been saved in MongoDB EHR.
+      </p>
+
+      <!-- Clinical Diagnostic Summary Box -->
+      <div class="modal-summary-box">
+        <div style="font-size: 0.7rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;">
+          Diagnostic Screening Results
+        </div>
+        <div class="modal-summary-grid">
+          <div>
+            <div style="font-size: 0.72rem; color: #64748b;">Diabetic Retinopathy:</div>
+            <div id="modal-dr-status" class="summary-pill detected" style="margin-top: 0.25rem;">DETECTED</div>
+          </div>
+          <div>
+            <div style="font-size: 0.72rem; color: #64748b;">ICDR Severity Grade:</div>
+            <div id="modal-dr-grade" style="font-weight: 700; color: #0f172a; margin-top: 0.25rem; font-size: 0.88rem;">Moderate NPDR (Grade 2)</div>
+          </div>
+          <div style="grid-column: span 2; border-top: 1px dashed #e2e8f0; padding-top: 0.5rem; margin-top: 0.25rem;">
+            <div style="font-size: 0.72rem; color: #64748b;">Care Triage Flag:</div>
+            <div id="modal-dr-referral" class="summary-pill referable" style="margin-top: 0.25rem; width: 100%; text-align: center; box-sizing: border-box;">
+              REFERRAL TO OPHTHALMOLOGIST REQUIRED
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size: 0.85rem; color: #334155; font-weight: 600; margin-bottom: 1.25rem;">
+        Ready to reset workstation and register the next patient?
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+        <button class="btn-primary" onclick="confirmResetAndNextPatient()" style="background: #0284c7; font-weight: 700; font-size: 0.9rem; padding: 0.75rem 1.5rem; justify-content: center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Register Next Patient</span>
+        </button>
+        <button class="btn-secondary" onclick="document.getElementById('next-patient-modal').classList.remove('open');" style="border: 1px solid #cbd5e1; color: #475569; justify-content: center; padding: 0.65rem 1rem;">
+          <span>Return to Viewport Inspection</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Telemedicine Referral Slip Modal -->
+  <div class="modal-backdrop" id="report-modal">
+    <div class="clinical-report-sheet" id="clinical-report-sheet">
+      <div class="report-header">
+        <div>
+          <div class="report-title">AYUSHMAN BHARAT TELE-RETINOPATHY REFERRAL SLIP</div>
+          <div class="report-subtitle">National Programme for Control of Blindness & Visual Impairment (NPCBVI)</div>
+        </div>
+        <button id="btn-close-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #475569;">✕</button>
+      </div>
+
+      <div class="report-meta-grid">
+        <div><strong>Patient Name:</strong> <span id="rep-patient-name">Ramesh Sharma</span></div>
+        <div><strong>Patient ID:</strong> <span id="rep-patient-id" style="font-family: monospace;">RS-PHC-2026-0841</span></div>
+        <div><strong>Age / Biological Sex:</strong> <span id="rep-patient-demog">58 Yrs / Male</span></div>
+        <div><strong>Diabetes Profile:</strong> <span id="rep-patient-dm">Type 2 (5-10 yrs) | HbA1c: 8.4%</span></div>
+        <div><strong>Eye Examined:</strong> <span id="rep-eye-scanned">OD (Right Eye)</span></div>
+        <div><strong>Facility:</strong> <span id="rep-phc">PHC Khed, District Pune</span></div>
+      </div>
+
+      <div class="report-section-title">Automated AI Assessment (ICDR Scale)</div>
+      <div id="rep-callout" class="report-callout referable">
+        <div style="font-size: 1.15rem; font-weight: 800;" id="rep-grade-title">Moderate NPDR (Grade 2)</div>
+        <div style="font-size: 0.82rem; margin-top: 0.25rem;" id="rep-triage-verdict">REFERRAL REQUIRED: Flagged for Specialist Evaluation</div>
+      </div>
+
+      <div class="report-section-title">Quantitative Lesion Evidence</div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 1.25rem; text-align: center;">
+        <div style="background: #f1f5f9; padding: 0.65rem; border-radius: 6px;">
+          <div style="font-size: 0.68rem; color: #64748b;">Microaneurysms</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #e11d48;" id="rep-ma-count">14</div>
+        </div>
+        <div style="background: #f1f5f9; padding: 0.65rem; border-radius: 6px;">
+          <div style="font-size: 0.68rem; color: #64748b;">Hard Exudates</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #ca8a04;" id="rep-he-pct">1.8%</div>
+        </div>
+        <div style="background: #f1f5f9; padding: 0.65rem; border-radius: 6px;">
+          <div style="font-size: 0.68rem; color: #64748b;">Hemorrhages</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #be123c;" id="rep-hem-pct">0.9%</div>
+        </div>
+        <div style="background: #f1f5f9; padding: 0.65rem; border-radius: 6px;">
+          <div style="font-size: 0.68rem; color: #64748b;">AI Confidence</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0284c7;" id="rep-confidence">84.5%</div>
+        </div>
+      </div>
+
+      <div class="report-section-title">Ophthalmologist Verification & Care Plan</div>
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.75rem; font-size: 0.82rem; margin-bottom: 1rem;">
+        <div><strong>Reviewing Specialist:</strong> <span id="rep-doc-name">Dr. Arvind Swaminathan, MD (Ophthal)</span></div>
+        <div style="margin-top: 0.25rem;"><strong>Actionable Referral:</strong> <span id="rep-doc-action" style="color: #b91c1c; font-weight: 600;">Refer for Macular OCT & Laser Photocoagulation</span></div>
+        <div style="margin-top: 0.25rem;"><strong>Clinical Notes:</strong> <span id="rep-doc-notes">Concur with AI finding of Moderate NPDR.</span></div>
+      </div>
+
+      <div class="signature-grid">
+        <div>
+          <div class="signature-line">
+            PHC Medical Officer / Screener Signature
+          </div>
+        </div>
+        <div>
+          <div class="signature-line">
+            Tele-Ophthalmologist Verification Sign-off
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button class="btn-primary" onclick="window.print();" style="background: #0284c7;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          <span>Print / Export PDF</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
